@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- App -->
+    <string name="app_name">Wavi Companion</string>
+    <string name="app_tagline">Your WhatsApp Companion</string>
+    <string name="app_description">Access your WhatsApp account from this device using the official Linked Devices feature.</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_welcome_title">Welcome to Wavi</string>
+    <string name="onboarding_welcome_subtitle">Your premium WhatsApp companion for Android.</string>
+    <string name="onboarding_how_it_works_title">How It Works</string>
+    <string name="onboarding_how_it_works_description">Wavi connects to your existing WhatsApp account using the official Linked Devices feature. Your primary account stays on your main device.</string>
+    <string name="onboarding_link_title">Link Your Device</string>
+    <string name="onboarding_link_description">Open WhatsApp on your primary device, go to Settings → Linked Devices → Link a Device, then scan the QR code shown here.</string>
+    <string name="onboarding_privacy_title">Private &amp; Secure</string>
+    <string name="onboarding_privacy_description">Wavi does not collect, store, or transmit your messages or personal data. All communication happens directly through the official WhatsApp Web service.</string>
+    <string name="onboarding_get_started">Connect WhatsApp</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_back">Back</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">Dashboard</string>
+    <string name="dashboard_open_whatsapp">Open WhatsApp</string>
+    <string name="dashboard_connection_status">Connection Status</string>
+    <string name="dashboard_connected">Connected</string>
+    <string name="dashboard_disconnected">Disconnected</string>
+    <string name="dashboard_connecting">Connecting…</string>
+    <string name="dashboard_not_linked">Not Linked</string>
+    <string name="dashboard_reconnect">Reconnect</string>
+    <string name="dashboard_last_active">Last Active</string>
+    <string name="dashboard_quick_actions">Quick Actions</string>
+    <string name="dashboard_settings">Settings</string>
+
+    <!-- WhatsApp Workspace -->
+    <string name="whatsapp_title">WhatsApp</string>
+    <string name="whatsapp_loading">Loading WhatsApp Web…</string>
+    <string name="whatsapp_scan_qr">Scan the QR code with your primary WhatsApp device to link.</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System Default</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_keep_screen_awake">Keep Screen Awake</string>
+    <string name="settings_keep_screen_awake_desc">Prevent screen from turning off while WhatsApp is open.</string>
+    <string name="settings_data">Data &amp; Storage</string>
+    <string name="settings_clear_cache">Clear Cache</string>
+    <string name="settings_clear_cache_desc">Removes temporary files. Your session will not be affected.</string>
+    <string name="settings_clear_data">Clear Website Data</string>
+    <string name="settings_clear_data_desc">Removes all website data including your linked session. You will need to scan the QR code again.</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_logout">Log Out</string>
+    <string name="settings_logout_desc">Unlink this device from your WhatsApp account.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_privacy">Privacy Information</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_version_format">Version %1$s (%2$d)</string>
+
+    <!-- About -->
+    <string name="about_title">About</string>
+    <string name="about_description">Wavi Companion is an independent third-party application that provides access to WhatsApp Web on Android. It is not affiliated with, endorsed by, or connected to WhatsApp LLC or Meta Platforms, Inc.</string>
+    <string name="about_disclaimer">WhatsApp is a registered trademark of WhatsApp LLC. All trademarks belong to their respective owners.</string>
+    <string name="about_version_label">App Version</string>
+    <string name="about_build_label">Build</string>
+
+    <!-- Privacy -->
+    <string name="privacy_title">Privacy Information</string>
+    <string name="privacy_intro">Wavi Companion is committed to your privacy.</string>
+    <string name="privacy_no_collection_title">No Data Collection</string>
+    <string name="privacy_no_collection_desc">We do not collect, store, or transmit any of your personal information, messages, contacts, or media.</string>
+    <string name="privacy_no_analytics_title">No Analytics</string>
+    <string name="privacy_no_analytics_desc">This application does not include any third-party analytics, tracking, or advertising frameworks.</string>
+    <string name="privacy_web_session_title">Web Session</string>
+    <string name="privacy_web_session_desc">Your WhatsApp Web session is managed entirely by the official WhatsApp Web service within a secure WebView. Session data is stored locally on your device.</string>
+    <string name="privacy_permissions_title">Permissions</string>
+    <string name="privacy_permissions_desc">The app requests only the permissions necessary for WhatsApp Web functionality, such as camera access for QR code scanning and microphone access for voice messages.</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_clear_cache_title">Clear Cache?</string>
+    <string name="dialog_clear_cache_message">This will remove temporary files. Your WhatsApp session will not be affected.</string>
+    <string name="dialog_clear_data_title">Clear Website Data?</string>
+    <string name="dialog_clear_data_message">This will remove all website data including your linked WhatsApp session. You will need to scan the QR code again to reconnect.</string>
+    <string name="dialog_logout_title">Log Out?</string>
+    <string name="dialog_logout_message">This will unlink this device from your WhatsApp account. You will need to scan the QR code again to reconnect.</string>
+    <string name="dialog_confirm">Confirm</string>
+    <string name="dialog_cancel">Cancel</string>
+
+    <!-- Errors -->
+    <string name="error_no_internet">No internet connection. Please check your network and try again.</string>
+    <string name="error_page_load_failed">Failed to load the page. Tap to retry.</string>
+    <string name="error_generic">Something went wrong. Please try again.</string>
+    <string name="error_retry">Retry</string>
+
+    <!-- Connection Status -->
+    <string name="connection_wifi">Wi-Fi</string>
+    <string name="connection_mobile">Mobile Data</string>
+    <string name="connection_none">No Connection</string>
+
+    <!-- Content Descriptions -->
+    <string name="cd_app_logo">Wavi Companion logo</string>
+    <string name="cd_back">Navigate back</string>
+    <string name="cd_settings">Open settings</string>
+    <string name="cd_connection_status">Connection status indicator</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors (used by XML themes) -->
+    <color name="wavi_green">#FF1B8755</color>
+    <color name="wavi_green_dark">#FF14653F</color>
+
+    <!-- Dark Theme (used by night theme XML) -->
+    <color name="dark_primary">#FF8AD4A8</color>
+    <color name="dark_on_primary">#FF003920</color>
+
+    <!-- Splash -->
+    <color name="splash_background">#FF1B8755</color>
+</resources>
