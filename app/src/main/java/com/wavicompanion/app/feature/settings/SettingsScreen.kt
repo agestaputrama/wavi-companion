@@ -1,5 +1,10 @@
 package com.wavicompanion.app.feature.settings
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.wavicompanion.app.core.common.BatteryOptimizationHelper
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +25,8 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.outlined.BatteryAlert
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.ScreenLockPortrait
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.AlertDialog
@@ -46,11 +53,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wavicompanion.app.core.notification.WaviNotificationService
 import com.wavicompanion.app.core.designsystem.theme.ThemeMode
 import com.wavicompanion.app.core.datastore.UserPreferencesRepository
 import com.wavicompanion.app.core.webview.WebViewManager
@@ -66,6 +75,13 @@ class SettingsViewModel @Inject constructor(
 
     val themeMode = userPreferencesRepository.themeMode
     val keepScreenOn = userPreferencesRepository.keepScreenAwake
+    val notificationsEnabled = userPreferencesRepository.notificationsEnabled
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            userPreferencesRepository.setNotificationsEnabled(enabled)
+        }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
@@ -88,6 +104,7 @@ class SettingsViewModel @Inject constructor(
     fun clearAllData() {
         viewModelScope.launch {
             webViewManager.clearSessionData()
+            userPreferencesRepository.setNotificationsEnabled(false)
         }
     }
 
@@ -95,6 +112,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             webViewManager.clearSessionData()
             userPreferencesRepository.setHasActiveSession(false)
+            userPreferencesRepository.setNotificationsEnabled(false)
         }
     }
 }
@@ -107,13 +125,24 @@ fun SettingsScreen(
     onLogout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val context = LocalContext.current
     val themeMode by viewModel.themeMode.collectAsState(initial = ThemeMode.SYSTEM)
     val keepScreenOn by viewModel.keepScreenOn.collectAsState(initial = false)
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsState(initial = false)
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     var showClearCacheDialog by remember { mutableStateOf(false) }
     var showClearDataDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            viewModel.setNotificationsEnabled(true)
+            WaviNotificationService.start(context)
+        }
+    }
 
     if (showClearCacheDialog) {
         AlertDialog(
@@ -143,6 +172,7 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     showClearDataDialog = false
                     viewModel.clearAllData()
+                    WaviNotificationService.stop(context)
                 }) {
                     Text("Clear All", color = MaterialTheme.colorScheme.error)
                 }
@@ -164,6 +194,7 @@ fun SettingsScreen(
                 TextButton(onClick = {
                     showLogoutDialog = false
                     viewModel.logout()
+                    WaviNotificationService.stop(context)
                     onLogout()
                 }) {
                     Text("Logout", color = MaterialTheme.colorScheme.error)
@@ -268,6 +299,80 @@ fun SettingsScreen(
                     Switch(
                         checked = keepScreenOn,
                         onCheckedChange = { viewModel.setKeepScreenOn(it) },
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+            SectionHeader("Notifications")
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Background notifications",
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            text = "Receive message notifications when the app is in the background",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = notificationsEnabled,
+                        onCheckedChange = { enabled ->
+                            if (enabled) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    viewModel.setNotificationsEnabled(true)
+                                    WaviNotificationService.start(context)
+                                }
+                            } else {
+                                viewModel.setNotificationsEnabled(false)
+                                WaviNotificationService.stop(context)
+                            }
+                        },
+                    )
+                }
+            }
+
+            if (notificationsEnabled && !BatteryOptimizationHelper.isIgnoringBatteryOptimizations(context)) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    SettingsItem(
+                        icon = Icons.Outlined.BatteryAlert,
+                        label = "Battery optimization active",
+                        description = "Tap to disable battery optimization so notifications work reliably in background",
+                        onClick = {
+                            context.startActivity(
+                                BatteryOptimizationHelper.buildBatterySettingsIntent(context),
+                            )
+                        },
                     )
                 }
             }

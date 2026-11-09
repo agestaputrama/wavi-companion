@@ -3,7 +3,10 @@ package com.wavicompanion.app.feature.whatsapp
 import android.Manifest
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.PermissionRequest
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -17,6 +20,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import android.app.Activity
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -45,8 +49,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +65,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import android.view.View
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -67,6 +74,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.wavicompanion.app.core.common.NetworkMonitor
 import com.wavicompanion.app.core.datastore.UserPreferencesRepository
+import com.wavicompanion.app.core.notification.WaviNotificationService
 import com.wavicompanion.app.core.webview.WebViewManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -83,6 +91,7 @@ class WhatsAppViewModel @Inject constructor(
 ) : ViewModel() {
 
     val isOnline = networkMonitor.isOnline
+    val notificationsEnabled = userPreferencesRepository.notificationsEnabled
 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -102,23 +111,21 @@ class WhatsAppViewModel @Inject constructor(
             userPreferencesRepository.setHasActiveSession(true)
         }
     }
-}
 
-private val ALLOWED_HOSTS = setOf(
-    "web.whatsapp.com",
-    "whatsapp.com",
-    "www.whatsapp.com",
-    "static.whatsapp.net",
-    "mmg.whatsapp.net",
-    "media.whatsapp.net",
-    "pps.whatsapp.net",
-)
+    fun logout() {
+        viewModelScope.launch {
+            webViewManager.clearSessionData()
+            userPreferencesRepository.setHasActiveSession(false)
+            userPreferencesRepository.setNotificationsEnabled(false)
+        }
+    }
+}
 
 private fun isAllowedUrl(url: String): Boolean {
     return try {
         val uri = Uri.parse(url)
         val host = uri.host ?: return false
-        ALLOWED_HOSTS.any { host == it || host.endsWith(".$it") }
+        com.wavicompanion.app.core.common.Constants.ALLOWED_HOSTS.any { host == it || host.endsWith(".$it") }
     } catch (_: Exception) {
         false
     }
@@ -137,31 +144,49 @@ fun WhatsAppScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val loadingProgress by viewModel.loadingProgress.collectAsState()
     val hasError by viewModel.hasError.collectAsState()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsState(initial = false)
+
+    val isDarkTheme = isSystemInDarkTheme()
 
     var showMenu by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var fileUploadCallback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
 
     val activity = context as? Activity
-    DisposableEffect(Unit) {
+    DisposableEffect(isDarkTheme) {
         activity?.window?.let { window ->
-            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
+            androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+            @Suppress("DEPRECATION")
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            @Suppress("DEPRECATION")
+            window.navigationBarColor = android.graphics.Color.TRANSPARENT
         }
         onDispose {
             activity?.window?.let { window ->
-                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+                androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, true)
             }
+        }
+    }
+
+    LaunchedEffect(notificationsEnabled) {
+        if (notificationsEnabled) {
+            WaviNotificationService.start(context)
         }
     }
 
     val webView = remember { viewModel.webViewManager.getOrCreate() }
 
+    LaunchedEffect(isDarkTheme) {
+        val bg = if (isDarkTheme) "#111b21" else "#f0f2f5"
+        webView.setBackgroundColor(android.graphics.Color.parseColor(bg))
+        viewModel.webViewManager.injectLayoutFix(isDarkTheme)
+    }
+
     val fileChooserLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent(),
-    ) { uri: Uri? ->
-        fileUploadCallback?.onReceiveValue(
-            if (uri != null) arrayOf(uri) else emptyArray()
-        )
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
+        fileUploadCallback?.onReceiveValue(uris)
         fileUploadCallback = null
     }
 
@@ -197,11 +222,24 @@ fun WhatsAppScreen(
         }
     }
 
-    DisposableEffect(lifecycleOwner) {
+    DisposableEffect(lifecycleOwner, notificationsEnabled) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_RESUME -> webView.onResume()
-                Lifecycle.Event.ON_PAUSE -> webView.onPause()
+                Lifecycle.Event.ON_RESUME -> {
+                    webView.onResume()
+                    if (notificationsEnabled) {
+                        viewModel.webViewManager.stopKeepAlive()
+                        viewModel.webViewManager.injectForegroundState()
+                    }
+                }
+                Lifecycle.Event.ON_PAUSE -> {
+                    if (notificationsEnabled) {
+                        viewModel.webViewManager.injectBackgroundState()
+                        viewModel.webViewManager.startKeepAlive()
+                    } else {
+                        webView.onPause()
+                    }
+                }
                 else -> {}
             }
         }
@@ -222,7 +260,8 @@ fun WhatsAppScreen(
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
-                        viewModel.webViewManager.clearSessionData()
+                        viewModel.logout()
+                        WaviNotificationService.stop(context)
                         onLogout()
                     },
                 ) {
@@ -241,6 +280,13 @@ fun WhatsAppScreen(
         topBar = {
             TopAppBar(
                 title = { Text("WhatsApp") },
+                colors = if (isDarkTheme) TopAppBarDefaults.topAppBarColors()
+                else TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -307,7 +353,10 @@ fun WhatsAppScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(
+                    top = padding.calculateTopPadding(),
+                    bottom = padding.calculateBottomPadding(),
+                ),
         ) {
             AndroidView(
                 factory = {
@@ -328,11 +377,28 @@ fun WhatsAppScreen(
                             }
                         }
 
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            if (url != null && isAllowedUrl(url)) {
+                                viewModel.webViewManager.injectViewportFix()
+                                viewModel.webViewManager.injectMediaDeviceFix()
+                                viewModel.webViewManager.injectNotificationJs()
+                            }
+                        }
+
                         override fun onPageFinished(view: WebView?, url: String?) {
                             super.onPageFinished(view, url)
                             viewModel.setLoading(false)
                             viewModel.setError(false)
                             viewModel.markSessionActive()
+                            if (url != null && isAllowedUrl(url)) {
+                                viewModel.webViewManager.injectMediaDeviceFix()
+                                viewModel.webViewManager.injectNotificationJs()
+                                viewModel.webViewManager.injectViewportFix()
+                                viewModel.webViewManager.injectLayoutFix(isDarkTheme)
+                                viewModel.webViewManager.injectPopupFocusFix()
+                                viewModel.webViewManager.injectForegroundState()
+                            }
                         }
 
                         override fun onReceivedError(
@@ -345,9 +411,25 @@ fun WhatsAppScreen(
                                 viewModel.setLoading(false)
                             }
                         }
+
+                        override fun onRenderProcessGone(
+                            view: WebView?,
+                            detail: RenderProcessGoneDetail?,
+                        ): Boolean {
+                            viewModel.setError(true)
+                            viewModel.setLoading(false)
+                            return true
+                        }
                     }
 
                     webView.webChromeClient = object : WebChromeClient() {
+                        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+                            consoleMessage?.let {
+                                Log.d("WaviWebView", "${it.messageLevel()}: ${it.message()} [${it.sourceId()}:${it.lineNumber()}]")
+                            }
+                            return true
+                        }
+
                         override fun onProgressChanged(view: WebView?, newProgress: Int) {
                             viewModel.setProgress(newProgress)
                             if (newProgress == 100) {
@@ -362,7 +444,48 @@ fun WhatsAppScreen(
                         ): Boolean {
                             fileUploadCallback?.onReceiveValue(null)
                             fileUploadCallback = callback
-                            fileChooserLauncher.launch("*/*")
+                            try {
+                                val acceptTypes = params?.acceptTypes
+                                    ?.filter { it.isNotBlank() }
+                                    ?: emptyList()
+                                val mimeType = acceptTypes.firstOrNull() ?: "*/*"
+                                val allowMultiple = params?.mode == FileChooserParams.MODE_OPEN_MULTIPLE
+
+                                val contentIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
+                                    type = mimeType
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    if (allowMultiple) {
+                                        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                                    }
+                                    if (acceptTypes.size > 1) {
+                                        putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes.toTypedArray())
+                                    }
+                                }
+
+                                val extraIntents = mutableListOf<Intent>()
+                                if (mimeType == "*/*" || mimeType.startsWith("image")) {
+                                    val galleryIntent = Intent(Intent.ACTION_PICK).apply {
+                                        type = "image/*"
+                                    }
+                                    val pm = context.packageManager
+                                    if (galleryIntent.resolveActivity(pm) != null) {
+                                        extraIntents.add(galleryIntent)
+                                    }
+                                }
+
+                                val chooser = Intent.createChooser(contentIntent, null)
+                                if (extraIntents.isNotEmpty()) {
+                                    chooser.putExtra(
+                                        Intent.EXTRA_INITIAL_INTENTS,
+                                        extraIntents.toTypedArray(),
+                                    )
+                                }
+
+                                fileChooserLauncher.launch(chooser)
+                            } catch (_: Exception) {
+                                fileUploadCallback?.onReceiveValue(null)
+                                fileUploadCallback = null
+                            }
                             return true
                         }
 
@@ -386,8 +509,10 @@ fun WhatsAppScreen(
                         }
                     }
 
-                    if (webView.url == null) {
-                        webView.loadUrl("https://web.whatsapp.com")
+                    webView.requestFocus(View.FOCUS_DOWN)
+
+                    if (webView.url == null || webView.url == "about:blank") {
+                        webView.loadUrl(com.wavicompanion.app.core.common.Constants.WHATSAPP_WEB_URL)
                     }
 
                     webView

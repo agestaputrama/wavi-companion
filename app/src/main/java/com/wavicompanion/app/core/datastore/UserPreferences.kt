@@ -20,6 +20,7 @@ class UserPreferencesRepository @Inject constructor(
         val KEEP_SCREEN_AWAKE = booleanPreferencesKey("keep_screen_awake")
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val HAS_ACTIVE_SESSION = booleanPreferencesKey("has_active_session")
+        val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
     }
 
     val themeMode: Flow<ThemeMode> = dataStore.data.map { prefs ->
@@ -40,6 +41,10 @@ class UserPreferencesRepository @Inject constructor(
         prefs[Keys.HAS_ACTIVE_SESSION] ?: false
     }
 
+    val notificationsEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[Keys.NOTIFICATIONS_ENABLED] ?: false
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     }
@@ -54,6 +59,10 @@ class UserPreferencesRepository @Inject constructor(
 
     suspend fun setHasActiveSession(active: Boolean) {
         dataStore.edit { it[Keys.HAS_ACTIVE_SESSION] = active }
+    }
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.NOTIFICATIONS_ENABLED] = enabled }
     }
 
     suspend fun clearAll() {

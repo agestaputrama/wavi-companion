@@ -79,6 +79,15 @@
     <string name="privacy_permissions_title">Permissions</string>
     <string name="privacy_permissions_desc">The app requests only the permissions necessary for WhatsApp Web functionality, such as camera access for QR code scanning and microphone access for voice messages.</string>
 
+    <!-- Notifications -->
+    <string name="settings_notifications">Notifications</string>
+    <string name="settings_notifications_enabled">Background Notifications</string>
+    <string name="settings_notifications_enabled_desc">Receive message notifications when the app is in the background.</string>
+    <string name="notification_channel_messages">WhatsApp Messages</string>
+    <string name="notification_channel_service">Background Service</string>
+    <string name="notification_service_title">Wavi Companion</string>
+    <string name="notification_service_text">Running in background for notifications</string>
+
     <!-- Dialogs -->
     <string name="dialog_clear_cache_title">Clear Cache?</string>
     <string name="dialog_clear_cache_message">This will remove temporary files. Your WhatsApp session will not be affected.</string>
